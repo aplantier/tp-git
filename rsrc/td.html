@@ -1,0 +1,108 @@
+<b>ATTENTION :</b> 
+
+<br/>Encore du yaml donc : indentation primordiale
+<br/>Helper en fin de TP
+
+<br/>Mail : cremoni.julien@gmail.com
+<h3>TD :</h3>
+On m'avait demandé de vous faire travailler dans le même dépot que pour vos autres cours mais ils risquent de se polluer l'un/l'autre.
+<br/>Nous allons donc travailler sur un nouveau dépôt.
+<ol>
+  <li>Créer votre nouveau dépôt : https://github.com/IUT-DEPT-INFO-UCA/lp-iotia-GL_CJ-nom1-nom2-nomX</li>
+  <li>S'assurer que j'y ai bien accès !</li>
+  <li>Ajouter vos dossiers TD_Ansible et TD_Docker à la racine de votre nouveau projet</li>
+  <li>Créer une nouvelle branche nommée develop</li>
+  <li>Dans votre dépot de groupe ajouter le Workflow de build Docker image (Action > New Workflow > Docker image)</li>
+  <li>Le fichier suivant est créé .github/workflows/docker-image.yml</li>
+  <li>Faire en sorte que l'image s'appelle nginx_nom1_nom2_nomX</li>
+  <li>Faire en sorte que le build de l'image se déroule depuis le bon dossier (TD_Docker)</li>
+  <li>Faire en sorte que les actions soient jouées sur lors de push sur la branche develop</li>
+  <li>Ajouter une étape permettant de tester la configuration nginx</li>
+    <ol>
+	  <li>Installer nginx avant le test (note: vous pouvez/devez utiliser sudo)</li>
+	  <li>Créer les liens symboliques adéquates pour que le fichier docker/etc/../votreconf.conf soit testés</li>
+	  <li>Jouer la commande de test</li>
+	  <li>La commande ne passe pas ? C'est normal, le serveur nginx à besoin du back php !</li>
+	  <li>Modifier la conf comme dans le helper mis à jour pour rendre le nginx indépendant du back</li>
+    </ol>
+  <li>L'image Docker ne doit pas être construite si les tests ne passent pas</li>
+  <li>L'image Docker doit être poussée les dépôts dockerhub</li>
+    <ol>
+	  <li>Créer un compte dockerhub</li>
+	  <li>Créer un dépôt dockerhub public</li>
+	  <li>Mettre le mot de passe pour se logger dans les secrets</li>
+	  <li>Tagger l'image correctement pour qu'elle aille dans votre dépôt</li>
+	</ol>
+  <li>Les tests sont joués uniquement sur la branche develop</li>
+  <li>La version de l'image lors de son build est <code>${git_branch}-${git_hash}</code> avec :</li>
+  <pre><code>
+git_hash=$(git rev-parse --short "$GITHUB_SHA")
+git_branch=${GITHUB_REF#refs/heads/}
+  </code></pre>
+  <li>L'image a une seconde version <code>${git_branch}</code>(celle avec le commit pour le versionning en cas de rollback et celle avec le nom de branche comme dernière version)</li>
+  <li>Créer le fichier .github/workflows/release-docker-image.yml</li>
+  <li>Dans ce fichier on veut que lors d'un tag l'image docker soit retagguée avec le tag de la release (pas de build d'image : login, pull, tag, push)</li>  
+  
+</ol>
+<h3> Helper</h3>
+<ul>
+  <li>Générer une clé ssh</li>
+  <code>ssh-keygen</code>
+  <li>Ajouter une clé à votre compte : en haut à droite sur votre profil settings > SSH and GPG > New SSH key > ajouter le contenu de ~/.ssh/id_rsa.pub</li>
+  <li>Dans votre projet local dans .git/config section remote "origin" change le champs url</li>
+  <code>Exemple : https://github.com/cremonij/toto.git --> git@github.com:cremonij/toto.git</code>
+  <li>Choisir le dossier de run d'une action</li>
+  <pre><code>      
+  - name: Setup Symfony
+        working-directory: ./app
+        run: cp .env.dev .env</code></pre>
+
+</ul>
+
+<h3>Helper TD_Docker (au cas où)</h3>
+<ul>
+  <li>Votre entrypoint commence par #!/usr/bin/bash
+  <li>Nginx ne doit pas tourner en arrière plan sinon le conteneur s'arrête (ou gardez le up avec une boucle while vérifiant le PID de nginx)</li>
+  <code>nginx -g 'daemon off;'</code>
+  <li>Commandes de base</li>
+<pre><code>
+docker ps -a
+docker logs $container_id_or_name
+docker exec -it td_docker_TdDocker_1 bash
+#le -d permet de mettre en background (detach)
+docker-compose up -d
+docker-compose logs
+</code></pre>
+  <li>Exemple de conf nginx sans php</li>
+<pre><code>
+server{
+  listen 8080;
+  root /opt/www ;
+  location / {
+  }
+}
+</code></pre>
+  <li>Exemple de conf nginx pour php(avec le conteneur php nommé back)</li>
+<pre><code>
+server{
+  listen 8080;
+  resolver 127.0.0.11 valid=30s;
+  index index.php index.html;
+  root /opt/www ;
+  location / {
+  }
+  location ~ \.php$ {
+    set $upstream back:9000;
+
+    try_files $uri =404;
+    fastcgi_split_path_info ^(.+\.php)(/.+)$;
+    fastcgi_pass $upstream;
+    fastcgi_index index.php;
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    fastcgi_param PATH_INFO $fastcgi_path_info;
+  }
+}
+</code></pre>
+  <li>Vous pouvez utiliser des volumes pour effectuer vos modifications de conf sans rebuild</li>
+</ul>
